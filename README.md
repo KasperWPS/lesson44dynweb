@@ -50,7 +50,7 @@ ansible-galaxy role install geerlingguy.docker
 Playbook:
 
 ```yaml
-- name: Postgres
+- name: Dynweb
   hosts: all
   become: yes
 
