@@ -1,4 +1,4 @@
-- name: Postgres
+- name: Dynweb
   hosts: all
   become: yes
 
