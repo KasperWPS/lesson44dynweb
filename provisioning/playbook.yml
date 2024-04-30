@@ -1,0 +1,92 @@
+- name: Postgres
+  hosts: all
+  become: yes
+
+  vars:
+    disabled: false
+
+  tasks:
+
+  - name: Accept login with password from sshd
+    ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^PasswordAuthentication no$'
+      line: 'PasswordAuthentication yes'
+      state: present
+    notify: Restart sshd
+
+  - name: Set timezone
+    community.general.timezone:
+      name: Europe/Moscow
+
+  - name: List all files in directory /etc/yum.repos.d/*.repo
+    find:
+      paths: "/etc/yum.repos.d/"
+      patterns: "*.repo"
+    register: repos
+    when: (ansible_os_family == "RedHat" and disabled == false)
+
+  - name: Comment mirrorlist /etc/yum.repos.d/CentOS-*
+    ansible.builtin.lineinfile:
+      backrefs: true
+      path: "{{ item.path }}"
+      regexp: '^(mirrorlist=.+)'
+      line: '#\1'
+    with_items: "{{ repos.files }}"
+    when: (ansible_os_family == "RedHat" and disabled == false)
+
+  - name: Replace baseurl
+    ansible.builtin.lineinfile:
+      backrefs: true
+      path: "{{ item.path }}"
+      regexp: '^#baseurl=http:\/\/mirror.centos.org(.+)'
+      line: 'baseurl=http://vault.centos.org\1'
+    with_items: "{{ repos.files }}"
+    when: (ansible_os_family == "RedHat" and disabled == false)
+
+  - name: Install base tools
+    ansible.builtin.dnf:
+      name:
+        - vim
+      state: present
+      update_cache: true
+    when: disabled == false
+
+  handlers:
+  - name: Restart sshd
+    ansible.builtin.service:
+      name: sshd
+      state: restarted
+
+- name: Docker setup
+  hosts: dynweb
+  become: true
+  roles:
+    - geerlingguy.docker
+
+- name: After docker setup
+  hosts: dynweb
+  become: yes
+  tasks:
+  - name: Add remote "vagrant" user to "docker" group
+    ansible.builtin.user:
+      name: vagrant
+      groups: "docker"
+      append: yes
+
+  - name: Copy project directory
+    ansible.builtin.copy:
+      src: project
+      dest: /home/vagrant
+      owner: vagrant
+      group: vagrant
+      mode: '0640'
+    notify: Start docker compose
+
+  handlers:
+
+  - name: Start docker compose
+    ansible.builtin.shell:
+      cmd: 'docker compose -f docker-compose.yml up -d'
+      chdir: /home/vagrant/project
+

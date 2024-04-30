@@ -1,0 +1,20 @@
+[
+  {
+    "name": "dynweb",
+    "cpus": 2,
+    "gui": false,
+    "box": "centos/8",
+    "private_network":
+    [
+      { "ip": "192.168.56.11", "adapter": 2, "netmask": "255.255.255.0" }
+    ],
+    "forward_port":
+    [
+      { "guest": 8081, "host": 8081, "auto_correct": true },
+      { "guest": 8082, "host": 8082, "auto_correct": true },
+      { "guest": 8083, "host": 8083, "auto_correct": true }
+    ],
+    "memory": 2048,
+    "no_share": true
+  }
+]

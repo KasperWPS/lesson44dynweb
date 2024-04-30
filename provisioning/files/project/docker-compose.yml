@@ -1,0 +1,76 @@
+services:
+
+  database:
+    image: mysql
+    container_name: database
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - ./dbdata:/var/lib/mysql
+    command: '--default-authentication-plugin=mysql_native_password'
+    networks:
+      - app-network
+
+  wordpress:
+    image: wordpress:6.5.2-fpm-alpine
+    container_name: wordpress
+    restart: unless-stopped
+    environment:
+      WORDPRESS_DB_HOST: database
+      WORDPRESS_DB_NAME: "${DB_NAME}"
+      WORDPRESS_DB_USER: root
+      WORDPRESS_DB_PASSWORD: "${DB_ROOT_PASSWORD}"
+    volumes:
+      - ./wordpress:/var/www/html
+    networks:
+      - app-network
+    depends_on:
+      - database
+
+  nginx:
+    image: nginx:1.25.5-alpine
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - 8081:8081
+      - 8082:8082
+      - 8083:8083
+    volumes:
+      - ./wordpress:/var/www/html
+      - ./nginx-conf:/etc/nginx/conf.d
+    networks:
+      - app-network
+    depends_on:
+      - wordpress
+      - app
+      - node
+
+  app:
+    build: ./python
+    container_name: app
+    restart: always
+    env_file:
+      - .env
+    command:
+      "gunicorn --workers=2 --bind=0.0.0.0:8000 mysite.wsgi:application"
+    networks:
+      - app-network
+
+  node:
+    image: node:22-alpine3.18
+    container_name: node
+    working_dir: /opt/server
+    volumes:
+      - ./node:/opt/server
+    command: node test.js
+    networks:
+      - app-network
+
+
+networks:
+  app-network:
+    driver: bridge
+
+
